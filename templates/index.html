@@ -252,8 +252,15 @@ function showResults(data) {
     mediaResults.innerHTML = html;
     
     // 显示下载文件
+    console.log('下载文件数据:', data.downloaded_files);
+    console.log('下载文件类型:', typeof data.downloaded_files);
+    console.log('下载文件长度:', data.downloaded_files ? data.downloaded_files.length : 'undefined');
+    
     if (data.downloaded_files && data.downloaded_files.length > 0) {
+        console.log('显示下载文件');
         showDownloadFiles(data.downloaded_files);
+    } else {
+        console.log('没有下载文件数据');
     }
 }
 

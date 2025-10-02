@@ -101,8 +101,11 @@ class S3Downloader:
         """批量下载媒体文件"""
         downloaded_files = []
         
+        print(f"开始下载 {len(media_list)} 个媒体文件")
+        
         for i, media in enumerate(media_list):
             if 'key' not in media:
+                print(f"媒体 {i+1} 缺少key字段: {media}")
                 continue
             
             key = media['key']
@@ -111,10 +114,15 @@ class S3Downloader:
             local_filename = f"{media_id}{file_extension}"
             local_path = os.path.join(download_dir, local_filename)
             
+            print(f"下载文件 {i+1}: {key} -> {local_path}")
             success = await self.download_file(key, local_path)
             if success:
                 downloaded_files.append(local_path)
+                print(f"下载成功: {local_path}")
+            else:
+                print(f"下载失败: {key}")
         
+        print(f"下载完成，成功下载 {len(downloaded_files)} 个文件")
         return downloaded_files
 
 class FilmMediaService:
