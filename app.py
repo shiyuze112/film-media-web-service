@@ -80,12 +80,25 @@ class S3Downloader:
         if not self.aws_access_key_id or not self.aws_secret_access_key:
             raise ValueError("缺少必要的 AWS 环境变量")
         
-        self.s3_client = boto3.client(
-            's3',
-            aws_access_key_id=self.aws_access_key_id,
-            aws_secret_access_key=self.aws_secret_access_key,
-            region_name=self.aws_region
-        )
+        from botocore.config import Config
+        
+        if self.aws_region == 'ap-east-1':
+            # ap-east-1需要特殊配置
+            self.s3_client = boto3.client(
+                's3',
+                aws_access_key_id=self.aws_access_key_id,
+                aws_secret_access_key=self.aws_secret_access_key,
+                region_name=self.aws_region,
+                endpoint_url=f'https://s3.{self.aws_region}.amazonaws.com',
+                config=Config(s3={'addressing_style': 'virtual'})
+            )
+        else:
+            self.s3_client = boto3.client(
+                's3',
+                aws_access_key_id=self.aws_access_key_id,
+                aws_secret_access_key=self.aws_secret_access_key,
+                region_name=self.aws_region
+            )
     
     async def download_file(self, key: str, local_path: str) -> bool:
         """从 S3 下载文件"""
@@ -354,12 +367,27 @@ def download_direct(media_id):
         try:
             # 直接创建S3客户端，避免使用S3Downloader类
             import boto3
-            s3_client = boto3.client(
-                's3',
-                aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-                aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
-                region_name=os.environ.get('AWS_REGION', 'ap-east-1')
-            )
+            from botocore.config import Config
+            
+            # 为ap-east-1区域配置正确的端点
+            region = os.environ.get('AWS_REGION', 'ap-east-1')
+            if region == 'ap-east-1':
+                # ap-east-1需要特殊配置
+                s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                    region_name=region,
+                    endpoint_url=f'https://s3.{region}.amazonaws.com',
+                    config=Config(s3={'addressing_style': 'virtual'})
+                )
+            else:
+                s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                    region_name=region
+                )
             
             bucket_name = os.environ.get('AWS_BUCKET', 'one2x-share')
             print(f"S3客户端创建成功，bucket: {bucket_name}")
