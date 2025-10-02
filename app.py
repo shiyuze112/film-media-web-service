@@ -16,7 +16,7 @@ from langchain_openai import AzureOpenAIEmbeddings
 import boto3
 from botocore.exceptions import ClientError
 from one2x_sdk.medeo.core_api.core_api_client import CoreApiClient
-from flask import Flask, render_template, request, jsonify, send_file, session
+from flask import Flask, render_template, request, jsonify, send_file, session, redirect
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import threading
@@ -306,39 +306,86 @@ def list_downloads(task_id):
 def download_direct(media_id):
     """直接从S3下载文件"""
     try:
+        print(f"开始处理下载请求，媒体ID: {media_id}")
+        
         # 从任务状态中查找对应的媒体信息
         media_info = None
+        print(f"当前任务状态数量: {len(task_status)}")
+        
         for task_id, task_data in task_status.items():
+            print(f"检查任务 {task_id}: {task_data.get('status')}")
             if task_data.get('status') == 'completed' and task_data.get('data', {}).get('media_list'):
+                print(f"任务 {task_id} 有媒体列表: {len(task_data['data']['media_list'])} 个")
                 for media in task_data['data']['media_list']:
+                    print(f"检查媒体: {media.get('id')}")
                     if media.get('id') == media_id:
                         media_info = media
+                        print(f"找到匹配的媒体信息: {media_info}")
                         break
                 if media_info:
                     break
         
         if not media_info:
+            print("未找到媒体信息")
             return jsonify({"error": "媒体信息不存在"}), 404
-        
-        # 创建临时下载
-        download_dir = os.path.join("downloads", "temp", media_id)
-        os.makedirs(download_dir, exist_ok=True)
         
         key = media_info['key']
         file_extension = os.path.splitext(key)[1] or '.mp4'
-        local_filename = f"{media_id}{file_extension}"
-        local_path = os.path.join(download_dir, local_filename)
+        filename = f"{media_id}{file_extension}"
         
-        # 从S3下载文件
-        s3_downloader = S3Downloader()
-        success = asyncio.run(s3_downloader.download_file(key, local_path))
+        print(f"准备下载文件: {key}")
         
-        if not success:
-            return jsonify({"error": "文件下载失败"}), 500
+        # 检查AWS环境变量
+        aws_access_key = os.environ.get('AWS_ACCESS_KEY_ID')
+        aws_secret_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
+        aws_region = os.environ.get('AWS_REGION', 'ap-east-1')
+        aws_bucket = os.environ.get('AWS_BUCKET', 'one2x-share')
         
-        return send_file(local_path, as_attachment=True, download_name=local_filename)
+        print(f"AWS环境变量检查:")
+        print(f"  ACCESS_KEY_ID: {'已设置' if aws_access_key else '未设置'}")
+        print(f"  SECRET_ACCESS_KEY: {'已设置' if aws_secret_key else '未设置'}")
+        print(f"  REGION: {aws_region}")
+        print(f"  BUCKET: {aws_bucket}")
+        
+        if not aws_access_key or not aws_secret_key:
+            return jsonify({"error": "AWS环境变量未正确配置"}), 500
+        
+        # 直接从S3生成预签名URL进行下载
+        try:
+            # 直接创建S3客户端，避免使用S3Downloader类
+            import boto3
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                region_name=os.environ.get('AWS_REGION', 'ap-east-1')
+            )
+            
+            bucket_name = os.environ.get('AWS_BUCKET', 'one2x-share')
+            print(f"S3客户端创建成功，bucket: {bucket_name}")
+            
+            # 生成预签名URL，有效期1小时
+            presigned_url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket_name, 'Key': key},
+                ExpiresIn=3600
+            )
+            
+            print(f"预签名URL生成成功: {presigned_url[:100]}...")
+            
+            # 重定向到预签名URL
+            return redirect(presigned_url)
+            
+        except Exception as e:
+            print(f"S3预签名URL生成失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({"error": f"文件下载失败: {str(e)}"}), 500
         
     except Exception as e:
+        print(f"下载直接API错误: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
