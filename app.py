@@ -17,6 +17,7 @@ import boto3
 from botocore.exceptions import ClientError
 from one2x_sdk.medeo.core_api.core_api_client import CoreApiClient
 from flask import Flask, render_template, request, jsonify, send_file, session
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import threading
 import time
@@ -27,6 +28,9 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+
+# 启用CORS
+CORS(app)
 
 # 全局变量存储任务状态
 task_status = {}

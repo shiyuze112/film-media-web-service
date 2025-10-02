@@ -210,12 +210,17 @@ function showProgress() {
 }
 
 function showResults(data) {
+    console.log('显示结果数据:', data);
+    
     document.getElementById('progressCard').style.display = 'none';
     document.getElementById('resultCard').style.display = 'block';
     document.getElementById('searchBtn').disabled = false;
     
     const mediaResults = document.getElementById('mediaResults');
     const mediaList = data.media_list || [];
+    
+    console.log('媒体列表:', mediaList);
+    console.log('媒体列表长度:', mediaList.length);
     
     document.getElementById('resultCount').textContent = `${mediaList.length} 个结果`;
     
