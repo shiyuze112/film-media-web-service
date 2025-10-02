@@ -226,6 +226,20 @@ def search_media():
         if not text:
             return jsonify({"error": "请输入搜索文本"}), 400
         
+        # 检查环境变量
+        required_env_vars = [
+            'AZURE_OPENAI_API_KEY_EASTUS',
+            'AZURE_OPENAI_API_ENDPOINT_EASTUS',
+            'AWS_ACCESS_KEY_ID',
+            'AWS_SECRET_ACCESS_KEY',
+            'AWS_REGION',
+            'AWS_BUCKET'
+        ]
+        
+        missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
+        if missing_vars:
+            return jsonify({"error": f"缺少环境变量: {', '.join(missing_vars)}"}), 500
+        
         # 创建任务
         task_id = str(uuid.uuid4())
         update_task_status(task_id, "pending", 0, "任务已创建，等待处理...")
@@ -288,5 +302,8 @@ if __name__ == '__main__':
     # 确保下载目录存在
     os.makedirs("downloads", exist_ok=True)
     
+    # 获取端口（Vercel会设置PORT环境变量）
+    port = int(os.environ.get('PORT', 5000))
+    
     # 启动服务
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=port)
