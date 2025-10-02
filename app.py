@@ -203,19 +203,11 @@ async def process_search_task(task_id: str, text: str, match_threshold: float, m
             return
         
         media_list = result.get("media_list", [])
-        update_task_status(task_id, "processing", 60, f"找到 {len(media_list)} 个匹配的媒体，开始下载...")
+        update_task_status(task_id, "processing", 60, f"找到 {len(media_list)} 个匹配的媒体...")
         
-        # 下载文件
-        download_result = await film_media_service.download_media(media_list, task_id)
-        
-        if "error" in download_result:
-            update_task_status(task_id, "error", 0, download_result["error"])
-            return
-        
+        # 直接返回媒体列表，不预下载文件
         update_task_status(task_id, "completed", 100, "处理完成", {
-            "media_list": media_list,
-            "downloaded_files": download_result["downloaded_files"],
-            "download_dir": download_result["download_dir"]
+            "media_list": media_list
         })
         
     except Exception as e:
@@ -307,6 +299,45 @@ def list_downloads(task_id):
                 })
         
         return jsonify({"files": files})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/download-direct/<media_id>')
+def download_direct(media_id):
+    """直接从S3下载文件"""
+    try:
+        # 从任务状态中查找对应的媒体信息
+        media_info = None
+        for task_id, task_data in task_status.items():
+            if task_data.get('status') == 'completed' and task_data.get('data', {}).get('media_list'):
+                for media in task_data['data']['media_list']:
+                    if media.get('id') == media_id:
+                        media_info = media
+                        break
+                if media_info:
+                    break
+        
+        if not media_info:
+            return jsonify({"error": "媒体信息不存在"}), 404
+        
+        # 创建临时下载
+        download_dir = os.path.join("downloads", "temp", media_id)
+        os.makedirs(download_dir, exist_ok=True)
+        
+        key = media_info['key']
+        file_extension = os.path.splitext(key)[1] or '.mp4'
+        local_filename = f"{media_id}{file_extension}"
+        local_path = os.path.join(download_dir, local_filename)
+        
+        # 从S3下载文件
+        s3_downloader = S3Downloader()
+        success = asyncio.run(s3_downloader.download_file(key, local_path))
+        
+        if not success:
+            return jsonify({"error": "文件下载失败"}), 500
+        
+        return send_file(local_path, as_attachment=True, download_name=local_filename)
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
