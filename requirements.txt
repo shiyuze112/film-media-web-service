@@ -5,3 +5,4 @@ boto3
 one2x-sdk
 python-dotenv
 cachetools
+aiohttp
