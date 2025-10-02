@@ -392,10 +392,13 @@ def download_direct(media_id):
             bucket_name = os.environ.get('AWS_BUCKET', 'one2x-share')
             print(f"S3客户端创建成功，bucket: {bucket_name}")
             
-            # 生成预签名URL，有效期1小时
+            # 生成预签名URL，有效期1小时（用于在线观看）
             presigned_url = s3_client.generate_presigned_url(
                 'get_object',
-                Params={'Bucket': bucket_name, 'Key': key},
+                Params={
+                    'Bucket': bucket_name, 
+                    'Key': key
+                },
                 ExpiresIn=3600
             )
             
@@ -414,6 +417,83 @@ def download_direct(media_id):
         print(f"下载直接API错误: {str(e)}")
         import traceback
         traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/download-file/<media_id>')
+def download_file_direct(media_id):
+    """强制下载文件"""
+    try:
+        print(f"开始处理强制下载请求，媒体ID: {media_id}")
+        
+        # 从任务状态中查找对应的媒体信息
+        media_info = None
+        for task_id, task_data in task_status.items():
+            if task_data.get('status') == 'completed' and task_data.get('data', {}).get('media_list'):
+                for media in task_data['data']['media_list']:
+                    if media.get('id') == media_id:
+                        media_info = media
+                        break
+                if media_info:
+                    break
+        
+        if not media_info:
+            return jsonify({"error": "媒体信息不存在"}), 404
+        
+        key = media_info['key']
+        file_extension = os.path.splitext(key)[1] or '.mp4'
+        filename = f"{media_id}{file_extension}"
+        
+        # 检查AWS环境变量
+        aws_access_key = os.environ.get('AWS_ACCESS_KEY_ID')
+        aws_secret_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
+        aws_region = os.environ.get('AWS_REGION', 'ap-east-1')
+        aws_bucket = os.environ.get('AWS_BUCKET', 'one2x-share')
+        
+        if not aws_access_key or not aws_secret_key:
+            return jsonify({"error": "AWS环境变量未正确配置"}), 500
+        
+        # 生成强制下载的预签名URL
+        try:
+            import boto3
+            from botocore.config import Config
+            
+            region = os.environ.get('AWS_REGION', 'ap-east-1')
+            if region == 'ap-east-1':
+                s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                    region_name=region,
+                    endpoint_url=f'https://s3.{region}.amazonaws.com',
+                    config=Config(s3={'addressing_style': 'virtual'})
+                )
+            else:
+                s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                    region_name=region
+                )
+            
+            # 生成强制下载的预签名URL
+            presigned_url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': aws_bucket, 
+                    'Key': key,
+                    'ResponseContentDisposition': f'attachment; filename="{filename}"'
+                },
+                ExpiresIn=3600
+            )
+            
+            return redirect(presigned_url)
+            
+        except Exception as e:
+            print(f"强制下载URL生成失败: {str(e)}")
+            return jsonify({"error": f"文件下载失败: {str(e)}"}), 500
+        
+    except Exception as e:
+        print(f"强制下载API错误: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
