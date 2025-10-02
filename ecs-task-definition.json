@@ -1,0 +1,58 @@
+{
+  "family": "film-media-web",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "film-media-web",
+      "image": "YOUR_ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/film-media-web:latest",
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "SECRET_KEY",
+          "value": "your-production-secret-key"
+        },
+        {
+          "name": "AZURE_OPENAI_API_KEY_EASTUS",
+          "value": "your-azure-openai-api-key"
+        },
+        {
+          "name": "AZURE_OPENAI_API_ENDPOINT_EASTUS",
+          "value": "https://your-resource.openai.azure.com/"
+        },
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "value": "your-aws-access-key"
+        },
+        {
+          "name": "AWS_SECRET_ACCESS_KEY",
+          "value": "your-aws-secret-key"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "ap-east-1"
+        },
+        {
+          "name": "AWS_BUCKET",
+          "value": "your-bucket-name"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/film-media-web",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

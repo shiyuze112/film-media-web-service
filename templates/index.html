@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% block title %}Film Media 搜索 - 文本转向量媒体匹配下载{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="bi bi-search"></i> 文本转向量媒体匹配搜索</h4>
+            </div>
+            <div class="card-body">
+                <form id="searchForm">
+                    <div class="mb-3">
+                        <label for="searchText" class="form-label">搜索文本 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="searchText" name="text" rows="3" 
+                                  placeholder="请输入要搜索的文本描述，例如：'一个人在跑步的场景' 或 '美丽的日落风景'" required></textarea>
+                        <div class="form-text">描述您想要搜索的媒体内容，系统会将文本转换为向量进行匹配</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="matchThreshold" class="form-label">匹配阈值</label>
+                                <input type="range" class="form-range" id="matchThreshold" name="match_threshold" 
+                                       min="0" max="1" step="0.1" value="0">
+                                <div class="d-flex justify-content-between">
+                                    <small>0 (宽松)</small>
+                                    <small id="thresholdValue">0.0</small>
+                                    <small>1 (严格)</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="matchCount" class="form-label">返回数量</label>
+                                <select class="form-select" id="matchCount" name="match_count">
+                                    <option value="1">1个</option>
+                                    <option value="3">3个</option>
+                                    <option value="5" selected>5个</option>
+                                    <option value="10">10个</option>
+                                    <option value="20">20个</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="searchBtn">
+                            <i class="bi bi-search"></i> 开始搜索
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 进度显示 -->
+        <div class="card mt-4 progress-container" id="progressCard">
+            <div class="card-header">
+                <h5><i class="bi bi-hourglass-split"></i> 处理进度</h5>
+            </div>
+            <div class="card-body">
+                <div class="progress mb-3">
+                    <div class="progress-bar" role="progressbar" id="progressBar" style="width: 0%"></div>
+                </div>
+                <p class="mb-0" id="progressMessage">准备开始...</p>
+            </div>
+        </div>
+        
+        <!-- 结果显示 -->
+        <div class="card mt-4 result-container" id="resultCard">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="bi bi-check-circle"></i> 搜索结果</h5>
+                <span class="badge bg-success" id="resultCount">0 个结果</span>
+            </div>
+            <div class="card-body">
+                <div id="mediaResults">
+                    <!-- 媒体结果将在这里显示 -->
+                </div>
+                
+                <div class="mt-4" id="downloadSection" style="display: none;">
+                    <h6><i class="bi bi-download"></i> 下载文件</h6>
+                    <div class="file-list" id="fileList">
+                        <!-- 文件列表将在这里显示 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 使用说明 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5><i class="bi bi-info-circle"></i> 使用说明</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>搜索流程：</h6>
+                        <ol>
+                            <li>输入文本描述</li>
+                            <li>调整匹配参数</li>
+                            <li>点击开始搜索</li>
+                            <li>等待处理完成</li>
+                            <li>下载匹配的媒体文件</li>
+                        </ol>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>参数说明：</h6>
+                        <ul>
+                            <li><strong>匹配阈值：</strong>数值越高，匹配越严格</li>
+                            <li><strong>返回数量：</strong>最多返回的媒体数量</li>
+                            <li><strong>处理时间：</strong>通常需要10-30秒</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentTaskId = null;
+let statusCheckInterval = null;
+
+// 更新阈值显示
+document.getElementById('matchThreshold').addEventListener('input', function() {
+    document.getElementById('thresholdValue').textContent = this.value;
+});
+
+// 表单提交
+document.getElementById('searchForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    startSearch();
+});
+
+function startSearch() {
+    const formData = new FormData(document.getElementById('searchForm'));
+    const data = Object.fromEntries(formData.entries());
+    
+    // 显示进度
+    showProgress();
+    
+    // 发送搜索请求
+    axios.post('/api/search', data)
+        .then(response => {
+            currentTaskId = response.data.task_id;
+            startStatusCheck();
+        })
+        .catch(error => {
+            console.error('搜索失败:', error);
+            showError('搜索请求失败: ' + error.message);
+        });
+}
+
+function startStatusCheck() {
+    if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+    }
+    
+    statusCheckInterval = setInterval(() => {
+        checkTaskStatus();
+    }, 1000);
+}
+
+function checkTaskStatus() {
+    if (!currentTaskId) return;
+    
+    axios.get(`/api/status/${currentTaskId}`)
+        .then(response => {
+            const status = response.data;
+            updateProgress(status);
+            
+            if (status.status === 'completed' || status.status === 'error') {
+                clearInterval(statusCheckInterval);
+                if (status.status === 'completed') {
+                    showResults(status.data);
+                } else {
+                    showError(status.message);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('状态检查失败:', error);
+            clearInterval(statusCheckInterval);
+            showError('状态检查失败: ' + error.message);
+        });
+}
+
+function updateProgress(status) {
+    const progressBar = document.getElementById('progressBar');
+    const progressMessage = document.getElementById('progressMessage');
+    
+    progressBar.style.width = status.progress + '%';
+    progressBar.setAttribute('aria-valuenow', status.progress);
+    progressMessage.textContent = status.message;
+    
+    if (status.status === 'error') {
+        progressBar.classList.add('bg-danger');
+    } else if (status.status === 'completed') {
+        progressBar.classList.add('bg-success');
+    }
+}
+
+function showProgress() {
+    document.getElementById('progressCard').style.display = 'block';
+    document.getElementById('resultCard').style.display = 'none';
+    document.getElementById('searchBtn').disabled = true;
+}
+
+function showResults(data) {
+    document.getElementById('progressCard').style.display = 'none';
+    document.getElementById('resultCard').style.display = 'block';
+    document.getElementById('searchBtn').disabled = false;
+    
+    const mediaResults = document.getElementById('mediaResults');
+    const mediaList = data.media_list || [];
+    
+    document.getElementById('resultCount').textContent = `${mediaList.length} 个结果`;
+    
+    if (mediaList.length === 0) {
+        mediaResults.innerHTML = '<div class="alert alert-info">未找到匹配的媒体</div>';
+        return;
+    }
+    
+    let html = '';
+    mediaList.forEach((media, index) => {
+        html += `
+            <div class="media-item">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h6>媒体 ${index + 1}</h6>
+                        <p class="mb-1"><strong>ID:</strong> ${media.id}</p>
+                        <p class="mb-0"><strong>Key:</strong> <code>${media.key}</code></p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-outline-primary btn-sm" onclick="copyToClipboard('${media.key}')">
+                            <i class="bi bi-copy"></i> 复制Key
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    mediaResults.innerHTML = html;
+    
+    // 显示下载文件
+    if (data.downloaded_files && data.downloaded_files.length > 0) {
+        showDownloadFiles(data.downloaded_files);
+    }
+}
+
+function showDownloadFiles(files) {
+    const downloadSection = document.getElementById('downloadSection');
+    const fileList = document.getElementById('fileList');
+    
+    let html = '';
+    files.forEach(file => {
+        const filename = file.split('/').pop();
+        html += `
+            <div class="d-flex justify-content-between align-items-center p-2 border rounded mb-2">
+                <span><i class="bi bi-file-earmark"></i> ${filename}</span>
+                <a href="/api/download/${currentTaskId}/${filename}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-download"></i> 下载
+                </a>
+            </div>
+        `;
+    });
+    
+    fileList.innerHTML = html;
+    downloadSection.style.display = 'block';
+}
+
+function showError(message) {
+    document.getElementById('progressCard').style.display = 'none';
+    document.getElementById('resultCard').style.display = 'block';
+    document.getElementById('searchBtn').disabled = false;
+    
+    const mediaResults = document.getElementById('mediaResults');
+    mediaResults.innerHTML = `<div class="alert alert-danger">${message}</div>`;
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // 显示复制成功提示
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check"></i> 已复制';
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 2000);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  film-media-web:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SECRET_KEY=your-production-secret-key
+      - AZURE_OPENAI_API_KEY_EASTUS=${AZURE_OPENAI_API_KEY_EASTUS}
+      - AZURE_OPENAI_API_ENDPOINT_EASTUS=${AZURE_OPENAI_API_ENDPOINT_EASTUS}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_BUCKET=${AWS_BUCKET}
+    volumes:
+      - ./downloads:/app/downloads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
