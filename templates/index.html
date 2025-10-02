@@ -234,7 +234,7 @@ function showResults(data) {
                         <p class="mb-1"><strong>文件名:</strong> ${filename}</p>
                         <p class="mb-1"><strong>ID:</strong> ${media.id}</p>
                         <p class="mb-1"><strong>Key:</strong> <code>${media.key}</code></p>
-                        <p class="mb-0"><strong>观看URL:</strong> <a href="/api/download-direct/${media.id}" target="_blank" class="text-break">点击观看视频</a></p>
+                        <p class="mb-0"><strong>观看URL:</strong> <a href="${media.watch_url || '/api/download-direct/' + media.id}" target="_blank" class="text-break">${media.watch_url || '/api/download-direct/' + media.id}</a></p>
                     </div>
                     <div class="col-md-4 text-end">
                         <a href="/api/download-file/${media.id}" class="btn btn-primary btn-sm me-2" download="${filename}" target="_blank">
@@ -243,7 +243,7 @@ function showResults(data) {
                         <button class="btn btn-outline-primary btn-sm" onclick="copyToClipboard('${media.key}')">
                             <i class="bi bi-copy"></i> 复制Key
                         </button>
-                        <button class="btn btn-outline-success btn-sm mt-1" onclick="copyToClipboard('/api/download-direct/${media.id}')">
+                        <button class="btn btn-outline-success btn-sm mt-1" onclick="copyToClipboard('${media.watch_url || '/api/download-direct/' + media.id}')">
                             <i class="bi bi-copy"></i> 复制观看URL
                         </button>
                     </div>

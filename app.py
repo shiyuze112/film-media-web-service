@@ -218,6 +218,30 @@ async def process_search_task(task_id: str, text: str, match_threshold: float, m
         media_list = result.get("media_list", [])
         update_task_status(task_id, "processing", 60, f"找到 {len(media_list)} 个匹配的媒体...")
         
+        # 为每个媒体生成观看URL
+        for media in media_list:
+            try:
+                # 生成观看URL
+                s3_downloader = S3Downloader()
+                s3_client = s3_downloader.s3_client
+                
+                bucket_name = os.environ.get('AWS_BUCKET', 'one2x-share')
+                key = media['key']
+                
+                # 生成预签名URL用于观看
+                watch_url = s3_client.generate_presigned_url(
+                    'get_object',
+                    Params={'Bucket': bucket_name, 'Key': key},
+                    ExpiresIn=3600
+                )
+                
+                media['watch_url'] = watch_url
+                print(f"为媒体 {media['id']} 生成观看URL: {watch_url[:100]}...")
+                
+            except Exception as e:
+                print(f"生成观看URL失败: {str(e)}")
+                media['watch_url'] = f"/api/download-direct/{media['id']}"
+        
         # 直接返回媒体列表，不预下载文件
         update_task_status(task_id, "completed", 100, "处理完成", {
             "media_list": media_list
