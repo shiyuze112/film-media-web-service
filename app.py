@@ -26,15 +26,24 @@ from functools import wraps
 # 加载环境变量
 load_dotenv()
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('app.log'),
-        logging.StreamHandler()
-    ]
-)
+# 配置日志（Vercel兼容）
+if os.environ.get('VERCEL'):
+    # Vercel环境：只使用控制台日志
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler()]
+    )
+else:
+    # 本地环境：使用文件和控制台日志
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('app.log'),
+            logging.StreamHandler()
+        ]
+    )
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
@@ -831,20 +840,30 @@ def download_file_direct(media_id):
         print(f"强制下载API错误: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# 初始化API密钥
-try:
-    init_api_keys()
-except Exception as e:
-    print(f"API密钥初始化失败: {e}")
+# 初始化API密钥（仅在非Vercel环境中）
+if not os.environ.get('VERCEL'):
+    try:
+        init_api_keys()
+    except Exception as e:
+        print(f"API密钥初始化失败: {e}")
 
-# 确保下载目录存在
-try:
-    os.makedirs("downloads", exist_ok=True)
-except Exception as e:
-    print(f"创建下载目录失败: {e}")
+# 确保下载目录存在（仅在非Vercel环境中）
+if not os.environ.get('VERCEL'):
+    try:
+        os.makedirs("downloads", exist_ok=True)
+    except Exception as e:
+        print(f"创建下载目录失败: {e}")
 
 # 部署时间戳 - 用于触发重新部署
 DEPLOYMENT_TIMESTAMP = "2024-01-15-15:30:00"
+
+# Vercel WSGI 支持
+def handler(request):
+    """Vercel WSGI 处理器"""
+    return app(request)
+
+# 导出应用实例（Vercel需要）
+application = app
 
 if __name__ == '__main__':
     # 获取端口（Vercel会设置PORT环境变量）
