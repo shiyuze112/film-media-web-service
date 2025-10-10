@@ -832,17 +832,19 @@ def download_file_direct(media_id):
         return jsonify({"error": str(e)}), 500
 
 # 初始化API密钥
-init_api_keys()
+try:
+    init_api_keys()
+except Exception as e:
+    print(f"API密钥初始化失败: {e}")
 
 # 确保下载目录存在
-os.makedirs("downloads", exist_ok=True)
+try:
+    os.makedirs("downloads", exist_ok=True)
+except Exception as e:
+    print(f"创建下载目录失败: {e}")
 
 # 部署时间戳 - 用于触发重新部署
 DEPLOYMENT_TIMESTAMP = "2024-01-15-15:30:00"
-
-# Vercel WSGI 支持
-def handler(request):
-    return app(request)
 
 if __name__ == '__main__':
     # 获取端口（Vercel会设置PORT环境变量）
