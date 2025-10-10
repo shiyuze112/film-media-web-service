@@ -26,24 +26,12 @@ from functools import wraps
 # 加载环境变量
 load_dotenv()
 
-# 配置日志（Vercel兼容）
-if os.environ.get('VERCEL'):
-    # Vercel环境：只使用控制台日志
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[logging.StreamHandler()]
-    )
-else:
-    # 本地环境：使用文件和控制台日志
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('app.log'),
-            logging.StreamHandler()
-        ]
-    )
+# 配置日志（Vercel兼容 - 只使用控制台日志）
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
