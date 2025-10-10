@@ -837,6 +837,9 @@ init_api_keys()
 # 确保下载目录存在
 os.makedirs("downloads", exist_ok=True)
 
+# 部署时间戳 - 用于触发重新部署
+DEPLOYMENT_TIMESTAMP = "2024-01-15-15:30:00"
+
 # Vercel WSGI 支持
 def handler(request):
     return app(request)
