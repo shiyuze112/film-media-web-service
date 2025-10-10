@@ -1,23 +1,29 @@
 version: '3.8'
 
 services:
-  film-media-web:
+  film-media-api:
     build: .
     ports:
-      - "8080:8080"
+      - "5000:5000"
     environment:
-      - SECRET_KEY=your-production-secret-key
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - API_KEYS=${API_KEYS:-demo-api-key-2024}
       - AZURE_OPENAI_API_KEY_EASTUS=${AZURE_OPENAI_API_KEY_EASTUS}
       - AZURE_OPENAI_API_ENDPOINT_EASTUS=${AZURE_OPENAI_API_ENDPOINT_EASTUS}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION}
-      - AWS_BUCKET=${AWS_BUCKET}
+      - AWS_REGION=${AWS_REGION:-ap-east-1}
+      - AWS_BUCKET=${AWS_BUCKET:-one2x-share}
+      - PORT=5000
+      - HOST=0.0.0.0
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
       - ./downloads:/app/downloads
+      - ./logs:/app/logs
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
